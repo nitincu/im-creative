@@ -102,12 +102,32 @@ an `AI Generated` badge appear on this variant. Console therefore already has
 its own AI generation path; this plugin generates independently and does not
 depend on it.
 
+### Tableau names templates differently
+
+`ds_rm_linkout_analytics.template_type` does not match Console's labels:
+
+| Console | Tableau |
+|---|---|
+| `Image/Video + Single Option + No Thanks` | `Image + Single Option + No Thanks` |
+| `Image/Video + Multiple Options + No Thanks` | `Image + Multiple Options + No Thanks` |
+| `Custom Template` | `Unknown Template` |
+
+Never match template names across the two systems by string equality.
+
 ### Templates observed
 
 `Single Option + No Thanks`, `Multiple Options + No Thanks`,
 `Image/Video + Single Option + No Thanks`,
 `Image/Video + Multiple Options + No Thanks`, `Iframe + No Thanks`,
-`Custom Template`, `Custom Template - AI`.
+`Custom Template`, `Custom Template - AI`, `Jobs SERP Page`.
+
+**Slot-based versus raw-markup.** Only templates whose name contains `Option`
+expose `Offer Title`, `Offer Subtitle` and `Offer Option N` fields. `Custom
+Template`, `Custom Template - AI`, `Iframe + No Thanks` and `Jobs SERP Page`
+carry a raw `Creative HTML` textarea instead and have **no slots at all**. Every
+experiment in the engine acts on slots, so a raw-markup control has no
+applicable experiment and the compiler refuses rather than instructing edits to
+fields that do not exist.
 
 ## Weights are relative, not percentages
 

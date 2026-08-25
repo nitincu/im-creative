@@ -101,6 +101,18 @@ def reuse_candidate(control, target_template, excluded=None):
     return None
 
 
+def is_slot_based(template, rules=None):
+    """Does this template expose Offer Title / Subtitle / Option fields?
+
+    Custom Template, Custom Template - AI, Iframe and Jobs SERP Page carry raw
+    markup instead, so an instruction to rewrite a slot is meaningless against
+    them. The 'Option' substring test also absorbs Tableau's variant spellings.
+    """
+    t = str(template or "")
+    names = ((rules or {}).get("slot_based_templates") or {}).get("names") or []
+    return t in names or "option" in t.lower()
+
+
 def predicates(control, rules=None, excluded=None):
     title = control.get("title") or ""
     template = control.get("template") or ""
@@ -116,6 +128,7 @@ def predicates(control, rules=None, excluded=None):
             largest_dollar(control, rules)["amount"] is not None,
         "control_has_resolvable_asset":
             resolve_asset(control, rules, None, excluded)["asset"] is not None,
+        "control_is_slot_based": is_slot_based(control.get("template"), rules),
         "control_has_alternative_asset":
             resolve_asset(control, rules, None, excluded)["asset"] is not None,
         "control_sibling_image_creatives":
@@ -260,6 +273,12 @@ def main():
         "excluded_creatives": excluded, "queue_evaluation": evaluated,
             "action": "report to the Admin. Do not improvise an experiment.",
             "likely_cause": (
+                "If control_is_slot_based is False, this control uses a raw-markup "
+                "template (Custom Template, Custom Template - AI, Iframe, Jobs "
+                "SERP Page) with no Offer Title / Subtitle / Option fields. No "
+                "current experiment can act on it. Report it; do not attempt to "
+                "edit the HTML. "
+            ) + (
                 "If dollar_amount_in_title was skipped for a missing amount, the "
                 "control states no figure and this offer has no entry in the "
                 "Admin's offer_amounts map. The Admin either adds one or the queue "

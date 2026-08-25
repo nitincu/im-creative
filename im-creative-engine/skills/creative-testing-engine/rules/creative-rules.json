@@ -1,5 +1,5 @@
 {
-  "version": "1.5.0",
+  "version": "1.6.0",
   "authored_by": "admin",
   "authored_at": "2026-08-24",
   "_note": "The engine's definition of what a creative may look like. Authored by the Admin. Public sessions consume this file and never author, override, or reason about it. Every generated variant is validated against these rules by rules_check.py before it may be written to Console.",
@@ -38,7 +38,8 @@
         "varied_attribute": "has_dollar_amount",
         "applies_when": {
           "control_title_has_dollar_amount": false,
-          "control_has_resolvable_amount": true
+          "control_has_resolvable_amount": true,
+          "control_is_slot_based": true
         },
         "recipe": {
           "title": {
@@ -79,7 +80,8 @@
         "applies_when": {
           "control_template_is_image": false,
           "control_option_count_gte": 2,
-          "control_has_resolvable_asset": true
+          "control_has_resolvable_asset": true,
+          "control_is_slot_based": true
         },
         "recipe": {
           "title": {
@@ -108,7 +110,8 @@
         "experiment": "benefit_hook",
         "varied_attribute": "hook_benefit",
         "applies_when": {
-          "control_title_has_benefit_word": false
+          "control_title_has_benefit_word": false,
+          "control_is_slot_based": true
         },
         "recipe": {
           "title": {
@@ -141,7 +144,8 @@
         "experiment": "option_semantics_intent",
         "varied_attribute": "option_semantics",
         "applies_when": {
-          "control_options_describe_user_state": true
+          "control_options_describe_user_state": true,
+          "control_is_slot_based": true
         },
         "recipe": {
           "title": {
@@ -167,7 +171,8 @@
         "experiment": "option_count_reduction",
         "varied_attribute": "option_count",
         "applies_when": {
-          "control_option_count_gte": 3
+          "control_option_count_gte": 3,
+          "control_is_slot_based": true
         },
         "recipe": {
           "title": {
@@ -194,7 +199,8 @@
         "varied_attribute": "image_asset",
         "applies_when": {
           "control_template_is_image": true,
-          "control_has_alternative_asset": true
+          "control_has_alternative_asset": true,
+          "control_is_slot_based": true
         },
         "recipe": {
           "title": {
@@ -327,5 +333,16 @@
     "Iframe + No Thanks": 0,
     "Custom Template": 0,
     "Custom Template - AI": 0
+  },
+  "slot_based_templates": {
+    "_comment": "Templates that expose Offer Title / Offer Subtitle / Offer Option fields. Every experiment that rewrites or copies a slot requires one of these. Custom Template, Custom Template - AI, Iframe and Jobs SERP Page carry raw markup instead and have no slots at all, so slot instructions are meaningless against them. Detection also accepts any template whose name contains 'Option', which covers Tableau's variant spellings (it reports 'Image + ...' where Console says 'Image/Video + ...', and 'Unknown Template' for Custom).",
+    "names": [
+      "Single Option + No Thanks",
+      "Multiple Options + No Thanks",
+      "Image/Video + Single Option + No Thanks",
+      "Image/Video + Multiple Options + No Thanks",
+      "Image + Single Option + No Thanks",
+      "Image + Multiple Options + No Thanks"
+    ]
   }
 }
