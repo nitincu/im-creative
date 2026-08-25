@@ -54,7 +54,7 @@ def pick_control(creatives):
     )[0]
 
 
-def plan(data, challenger_ids=None):
+def plan(data, challenger_ids=None, allow_auto=False):
     creatives = data.get("creatives") or []
     if not creatives:
         return {"ok": False, "error": "no creatives supplied"}
@@ -95,9 +95,23 @@ def plan(data, challenger_ids=None):
                 f"{len(requested)} challengers requested; capped at "
                 f"{MAX_CHALLENGERS}. Dropped: {requested[MAX_CHALLENGERS:]}. "
                 "More arms means less power per arm and a longer read.")
-    else:
+    elif allow_auto:
         chosen = [str(c["creative_id"]) for c in creatives
                   if str(c["creative_id"]) != control_id][:MAX_CHALLENGERS]
+        warnings.append(
+            "challengers auto-selected. This picks dormant creatives with no "
+            "regard for whether a previous test already killed them, which is "
+            "how a proven loser gets resurrected. Pass --challengers explicitly.")
+    else:
+        return {"ok": False,
+                "error": "no challengers given",
+                "control_creative_id": control_id,
+                "remedy": ("pass --challengers with the ids to test. They come from "
+                           "compile_variants (new variants) or from its "
+                           "reuse_existing_creative flag -- never from 'whatever "
+                           "else is on the offer', because that resurrects "
+                           "creatives previous tests already killed."),
+                "warnings": warnings}
 
     split = SPLITS[len(chosen)]
     if not chosen:
@@ -172,11 +186,14 @@ def main():
     ap.add_argument("--input")
     ap.add_argument("--challengers",
                     help="comma-separated creative ids to use as challengers")
+    ap.add_argument("--allow-auto-challengers", action="store_true",
+                    help="pick dormant creatives automatically. Unsafe: ignores "
+                         "whether a previous test already killed them.")
     a = ap.parse_args()
 
     raw = open(a.input).read() if a.input else sys.stdin.read()
     ids = a.challengers.split(",") if a.challengers else None
-    res = plan(json.loads(raw), ids)
+    res = plan(json.loads(raw), ids, a.allow_auto_challengers)
     print(json.dumps(res, indent=2))
     sys.exit(0 if res.get("ok") else 1)
 

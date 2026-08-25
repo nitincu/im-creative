@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "authored_by": "admin",
   "authored_at": "2026-08-24",
   "_note": "The engine's definition of what a creative may look like. Authored by the Admin. Public sessions consume this file and never author, override, or reason about it. Every generated variant is validated against these rules by rules_check.py before it may be written to Console.",
@@ -190,10 +190,11 @@
       },
       {
         "priority": 6,
-        "experiment": "image_hook_unconditional_framing",
-        "varied_attribute": "image_hook_framing",
+        "experiment": "image_asset_swap",
+        "varied_attribute": "image_asset",
         "applies_when": {
-          "control_template_is_image": true
+          "control_template_is_image": true,
+          "control_has_alternative_asset": true
         },
         "recipe": {
           "title": {
@@ -208,23 +209,13 @@
           "template": {
             "action": "inherit_from_control"
           },
-          "image_hook": {
-            "action": "rewrite",
-            "must_include": [
-              "a specific unconditional proposition stating what the viewer receives"
-            ],
-            "must_avoid": [
-              "conditional framing",
-              "qualification language",
-              "abstract benefit"
-            ],
-            "rule": "restate the offer's value as something already available to the viewer rather than something to qualify for",
-            "max_words": 14
+          "image_asset": {
+            "action": "set_from_admin_assets"
           }
         },
-        "n_challengers": 2,
+        "n_challengers": 1,
         "target_mde": 0.15,
-        "note": "Changes exactly one attribute so the result is attributable."
+        "note": "Tests which image hook works by swapping in a DIFFERENT asset already present on this offer, holding all copy constant. The engine cannot author or edit an image, so an experiment that asked it to rewrite text inside one was unshippable. Selection between existing assets is executable; creation is not."
       }
     ]
   },

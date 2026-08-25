@@ -26,7 +26,21 @@ INTENT_PHRASING = re.compile(r"\b(cheapest|lowest|show me|quotes?|coverage|"
                              r"compare|looking for|i want|i need)\b", re.I)
 
 
-def resolve_asset(control, rules=None, target_template=None):
+def _usable_siblings(control, excluded):
+    """Siblings minus anything a previous test already killed.
+
+    A creative that lost badly is not a candidate for reuse, and its asset is
+    suspect too -- on an image template the asset may be exactly what lost.
+    """
+    out = []
+    for s in (control.get("siblings") or []):
+        if str(s.get("creative_id")) in excluded:
+            continue
+        out.append(s)
+    return out
+
+
+def resolve_asset(control, rules=None, target_template=None, excluded=None):
     """Asset for image-template experiments.
 
     Never invented. Resolved, in order, from:
@@ -44,7 +58,10 @@ def resolve_asset(control, rules=None, target_template=None):
         if key and assets.get(key):
             return {"asset": assets[key], "source": "admin_offer_assets"}
 
-    sibs = [s for s in (control.get("siblings") or []) if s.get("asset")]
+    excluded = set(str(x) for x in (excluded or []))
+    own = control.get("image_asset")
+    sibs = [s for s in _usable_siblings(control, excluded)
+            if s.get("asset") and s.get("asset") != own]
     if target_template:
         exact = [s for s in sibs if s.get("template") == target_template]
         if exact:
@@ -58,18 +75,21 @@ def resolve_asset(control, rules=None, target_template=None):
                 "from_creative_id": s0.get("creative_id"),
                 "template_match": s0.get("template") == target_template}
 
-    if control.get("image_asset"):
-        return {"asset": control["image_asset"], "source": "control"}
+    # No fallback to the control's OWN asset. For a swap it is by definition not
+    # an alternative, and for a template move it is not a donor either -- a text
+    # control has no asset to give. Returning it made the swap experiment look
+    # applicable when there was nothing to swap to.
     return {"asset": None, "source": None}
 
 
-def reuse_candidate(control, target_template):
+def reuse_candidate(control, target_template, excluded=None):
     """A dormant sibling that already IS the variant this experiment would build.
 
     Without this the engine happily creates a near-duplicate of a creative the
     team already made, which is how a creative library turns into sprawl.
     """
-    for s in (control.get("siblings") or []):
+    excluded = set(str(x) for x in (excluded or []))
+    for s in _usable_siblings(control, excluded):
         if s.get("template") == target_template and s.get("asset"):
             return {"creative_id": s.get("creative_id"),
                     "template": s.get("template"),
@@ -81,7 +101,7 @@ def reuse_candidate(control, target_template):
     return None
 
 
-def predicates(control, rules=None):
+def predicates(control, rules=None, excluded=None):
     title = control.get("title") or ""
     template = control.get("template") or ""
     options = [o for o in (control.get("options") or []) if o]
@@ -95,7 +115,9 @@ def predicates(control, rules=None):
         "control_has_resolvable_amount":
             largest_dollar(control, rules)["amount"] is not None,
         "control_has_resolvable_asset":
-            resolve_asset(control, rules)["asset"] is not None,
+            resolve_asset(control, rules, None, excluded)["asset"] is not None,
+        "control_has_alternative_asset":
+            resolve_asset(control, rules, None, excluded)["asset"] is not None,
         "control_sibling_image_creatives":
             len([x for x in (control.get("siblings") or []) if x.get("asset")]),
     }
@@ -145,7 +167,8 @@ def resolve_slot(slot, spec, control, rules, amount_info):
     if action == "set_from_admin_assets":
         tgt = None
         tspec = (spec.get("_target_template") or {})
-        info = resolve_asset(control, rules, tspec.get("value"))
+        info = resolve_asset(control, rules, tspec.get("value"),
+                             spec.get("_excluded"))
         out = {"action": "SET_ASSET", "value": info["asset"],
                "source": info["source"],
                "from_creative_id": info.get("from_creative_id"),
@@ -200,12 +223,16 @@ def main():
     ap.add_argument("--rules", default="rules/creative-rules.json")
     ap.add_argument("--concluded", default="",
                     help="comma-separated experiment names already concluded")
+    ap.add_argument("--exclude", default="",
+                    help="comma-separated creative ids a previous test killed or "
+                         "called inconclusive. Never reused, never donate assets.")
     a = ap.parse_args()
 
     control = json.load(open(a.control))
     rules = json.load(open(a.rules))
     done = {x.strip() for x in a.concluded.split(",") if x.strip()}
-    preds = predicates(control, rules)
+    excluded = [x.strip() for x in a.exclude.split(",") if x.strip()]
+    preds = predicates(control, rules, excluded)
 
     evaluated, chosen = [], None
     for entry in sorted(rules["test_queue"]["entries"], key=lambda e: e["priority"]):
@@ -229,7 +256,8 @@ def main():
         print(json.dumps({
             "ok": False,
             "error": "no queue entry applies to this control",
-            "predicates": preds, "queue_evaluation": evaluated,
+            "predicates": preds,
+        "excluded_creatives": excluded, "queue_evaluation": evaluated,
             "action": "report to the Admin. Do not improvise an experiment.",
             "likely_cause": (
                 "If dollar_amount_in_title was skipped for a missing amount, the "
@@ -253,9 +281,10 @@ def main():
     for name, spec in recipe.items():
         if spec.get("action") == "set_from_admin_assets":
             spec["_target_template"] = {"value": tgt_tpl}
+            spec["_excluded"] = excluded
     slots = {s: resolve_slot(s, spec, control, rules, amount_info)
              for s, spec in recipe.items()}
-    reuse = reuse_candidate(control, tgt_tpl) if tgt_tpl else None
+    reuse = reuse_candidate(control, tgt_tpl, excluded) if tgt_tpl else None
 
     variants = []
     for i in range(n):
@@ -269,6 +298,7 @@ def main():
         "ok": True,
         "rules_version": rules["version"],
         "predicates": preds,
+        "excluded_creatives": excluded,
         "queue_evaluation": evaluated,
         "selected_experiment": chosen["experiment"],
         "varied_attribute": chosen["varied_attribute"],

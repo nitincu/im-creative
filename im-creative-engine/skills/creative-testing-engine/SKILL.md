@@ -174,6 +174,11 @@ python3 "$SKILL_DIR/scripts/compile_variants.py" --control /tmp/control.json \
 
 Get the concluded list from the repository `outcomes` and `tests` tabs.
 
+**Also pass `--exclude` with every creative id a previous test killed or called
+inconclusive.** Read those from `outcomes`. Without it the engine will happily
+nominate a creative a previous test already proved catastrophic — and take its
+asset too, which on an image template may be the very thing that lost.
+
 The output names the experiment, the slot actions, the challenger count, the
 weights, and the decision parameters. **All of it is binding.**
 
