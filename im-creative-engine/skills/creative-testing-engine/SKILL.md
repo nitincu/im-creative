@@ -127,8 +127,25 @@ document.querySelectorAll('input, textarea')        // slots, options, weight
 document.querySelectorAll('[contenteditable="true"]') // Quill: title, subtitle
 ```
 
-Write the result to `/tmp/control.json` as
-`{creative_id, category, template, title, subtitle, options[], skip_text}`.
+**Also harvest the siblings.** While you are in Console, open every OTHER
+creative on this offer that uses an Image/Video template and record its asset
+path. Image experiments resolve their asset from these — an asset already
+configured for this exact offer, rather than one a session invented.
+
+Write the result to `/tmp/control.json` as:
+
+```json
+{"creative_id": "", "category": "", "offer_name": "", "offer_id": "",
+ "template": "", "title": "", "subtitle": "", "options": [], "skip_text": "",
+ "macro_mappings": {},
+ "siblings": [
+   {"creative_id": "", "template": "", "status": "", "asset": ""}
+ ]}
+```
+
+Omitting `siblings` makes every image experiment inapplicable, and the queue
+will silently fall through to a text experiment. That is not a failure you will
+notice from the output, so do the harvest.
 
 **Never record or echo the `View Creative` href** — it carries a bearer JWT
 valid about nine months.
@@ -159,6 +176,13 @@ Get the concluded list from the repository `outcomes` and `tests` tabs.
 
 The output names the experiment, the slot actions, the challenger count, the
 weights, and the decision parameters. **All of it is binding.**
+
+**Check `reuse_existing_creative` before building anything.** If it is populated,
+a dormant creative on this offer already matches the experiment's target shape.
+Activate that one and set its weight instead of creating a near-duplicate.
+Verify its copy still matches the control's COPY slots first; if it has drifted,
+build new. Creating a second copy of a creative the team already made is how a
+creative library turns into sprawl nobody can reason about.
 
 # STEP 8 — Fill only the REWRITE slots
 

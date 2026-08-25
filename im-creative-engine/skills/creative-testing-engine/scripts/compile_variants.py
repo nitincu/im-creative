@@ -26,16 +26,59 @@ INTENT_PHRASING = re.compile(r"\b(cheapest|lowest|show me|quotes?|coverage|"
                              r"compare|looking for|i want|i need)\b", re.I)
 
 
-def resolve_asset(control, rules=None):
-    """Asset for image-template experiments. Admin map only -- a session inventing
-    an asset is the same failure mode as a session inventing a dollar figure."""
+def resolve_asset(control, rules=None, target_template=None):
+    """Asset for image-template experiments.
+
+    Never invented. Resolved, in order, from:
+      1. the Admin's offer_assets map
+      2. a sibling creative already on THIS offer that uses an image template --
+         that asset was built and configured for this exact offer, so reusing it
+         is not a creative decision
+      3. an asset already on the control
+
+    Preference within siblings goes to one whose template matches the experiment's
+    target, so the asset was authored for that shape.
+    """
     assets = ((rules or {}).get("offer_assets") or {}).get("by_offer_name") or {}
     for key in (control.get("offer_name"), control.get("offer_id")):
         if key and assets.get(key):
             return {"asset": assets[key], "source": "admin_offer_assets"}
+
+    sibs = [s for s in (control.get("siblings") or []) if s.get("asset")]
+    if target_template:
+        exact = [s for s in sibs if s.get("template") == target_template]
+        if exact:
+            s0 = exact[0]
+            return {"asset": s0["asset"], "source": "sibling_creative",
+                    "from_creative_id": s0.get("creative_id"),
+                    "template_match": True}
+    if sibs:
+        s0 = sibs[0]
+        return {"asset": s0["asset"], "source": "sibling_creative",
+                "from_creative_id": s0.get("creative_id"),
+                "template_match": s0.get("template") == target_template}
+
     if control.get("image_asset"):
         return {"asset": control["image_asset"], "source": "control"}
     return {"asset": None, "source": None}
+
+
+def reuse_candidate(control, target_template):
+    """A dormant sibling that already IS the variant this experiment would build.
+
+    Without this the engine happily creates a near-duplicate of a creative the
+    team already made, which is how a creative library turns into sprawl.
+    """
+    for s in (control.get("siblings") or []):
+        if s.get("template") == target_template and s.get("asset"):
+            return {"creative_id": s.get("creative_id"),
+                    "template": s.get("template"),
+                    "status": s.get("status"),
+                    "action": "activate this existing creative and set its weight "
+                              "rather than creating a new one",
+                    "verify_first": "confirm its copy still matches the control's "
+                                    "COPY slots; if it has drifted, build new"}
+    return None
 
 
 def predicates(control, rules=None):
@@ -53,6 +96,8 @@ def predicates(control, rules=None):
             largest_dollar(control, rules)["amount"] is not None,
         "control_has_resolvable_asset":
             resolve_asset(control, rules)["asset"] is not None,
+        "control_sibling_image_creatives":
+            len([x for x in (control.get("siblings") or []) if x.get("asset")]),
     }
 
 
@@ -98,10 +143,20 @@ def largest_dollar(control, rules=None):
 def resolve_slot(slot, spec, control, rules, amount_info):
     action = spec.get("action")
     if action == "set_from_admin_assets":
-        info = resolve_asset(control, rules)
-        return {"action": "SET_ASSET", "value": info["asset"], "source": info["source"],
-                "instruction": "upload or reference exactly this asset. Do not "
-                               "substitute a different image."}
+        tgt = None
+        tspec = (spec.get("_target_template") or {})
+        info = resolve_asset(control, rules, tspec.get("value"))
+        out = {"action": "SET_ASSET", "value": info["asset"],
+               "source": info["source"],
+               "from_creative_id": info.get("from_creative_id"),
+               "template_match": info.get("template_match"),
+               "instruction": "use exactly this asset. Do not substitute a "
+                              "different image."}
+        if info.get("template_match") is False:
+            out["warning"] = ("this asset was authored for a different template, "
+                              "so its dimensions may not suit the target. Verify "
+                              "the preview before saving.")
+        return out
     if action == "copy_verbatim_from_control":
         return {"action": "COPY", "value": control.get(slot),
                 "instruction": "use exactly this, character for character"}
@@ -193,8 +248,14 @@ def main():
              [pool // 2] * 2 if n == 2 else
              [7, 7, 6])
 
+    recipe = chosen["recipe"]
+    tgt_tpl = (recipe.get("template") or {}).get("value")
+    for name, spec in recipe.items():
+        if spec.get("action") == "set_from_admin_assets":
+            spec["_target_template"] = {"value": tgt_tpl}
     slots = {s: resolve_slot(s, spec, control, rules, amount_info)
-             for s, spec in chosen["recipe"].items()}
+             for s, spec in recipe.items()}
+    reuse = reuse_candidate(control, tgt_tpl) if tgt_tpl else None
 
     variants = []
     for i in range(n):
@@ -216,6 +277,7 @@ def main():
                         "challengers": split, "sums_to": dp["control_weight"] + sum(split)},
         "decision_parameters": dp,
         "variants": variants,
+        "reuse_existing_creative": reuse,
         "session_may_only": ["fill slots marked REWRITE, inside the stated constraints"],
         "session_may_not": ["choose a different experiment", "change slot actions",
                             "change challenger count", "change weights",
