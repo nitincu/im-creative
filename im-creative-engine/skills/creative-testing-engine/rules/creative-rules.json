@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "authored_by": "admin",
   "authored_at": "2026-08-24",
   "_note": "The engine's definition of what a creative may look like. Authored by the Admin. Public sessions consume this file and never author, override, or reason about it. Every generated variant is validated against these rules by rules_check.py before it may be written to Console.",
@@ -26,7 +26,8 @@
     "max_challengers": 3,
     "image_hook_must_state_proposition": true,
     "image_hook_forbid_conditional_framing": true,
-    "forbid_typos_in_image_hook": true
+    "forbid_typos_in_image_hook": true,
+    "compliance_applies_to_rewritten_slots_only": true
   },
   "test_queue": {
     "_note": "Priority order. The engine takes the lowest-priority-number entry not yet concluded for the offer's scope. Nothing here is optional or reorderable at the session level.",
@@ -76,7 +77,9 @@
         "experiment": "image_template",
         "varied_attribute": "template",
         "applies_when": {
-          "control_template_is_image": false
+          "control_template_is_image": false,
+          "control_option_count_gte": 2,
+          "control_has_resolvable_asset": true
         },
         "recipe": {
           "title": {
@@ -90,12 +93,15 @@
           },
           "template": {
             "action": "set",
-            "value": "Image/Video + Single Option + No Thanks"
+            "value": "Image/Video + Multiple Options + No Thanks"
+          },
+          "image_asset": {
+            "action": "set_from_admin_assets"
           }
         },
         "n_challengers": 1,
         "target_mde": 0.15,
-        "note": "Changes exactly one attribute so the result is attributable."
+        "note": "Changes exactly one attribute so the result is attributable. Targets the multi-option image template so the control's options survive the switch unchanged."
       },
       {
         "priority": 3,
@@ -314,5 +320,19 @@
   "offer_amounts": {
     "_comment": "Admin-maintained. A consumer-facing figure for offers whose control creative does not state one. ONLY the Admin adds entries here. A session may never supply an amount -- that is how fabricated figures reach live traffic. Keys are exact Offer Name strings.",
     "by_offer_name": {}
+  },
+  "offer_assets": {
+    "_comment": "Admin-maintained. Image or video asset paths for offers, used by image-template experiments. ONLY the Admin adds entries. A session may never invent or substitute an asset. Keys are exact Offer Name strings; values are paths as they appear in Console's asset field.",
+    "by_offer_name": {}
+  },
+  "template_capacity": {
+    "_comment": "Maximum options each template can hold. rules_check enforces this so a recipe can never ask for more options than the target template supports.",
+    "Single Option + No Thanks": 1,
+    "Image/Video + Single Option + No Thanks": 1,
+    "Multiple Options + No Thanks": 4,
+    "Image/Video + Multiple Options + No Thanks": 4,
+    "Iframe + No Thanks": 0,
+    "Custom Template": 0,
+    "Custom Template - AI": 0
   }
 }

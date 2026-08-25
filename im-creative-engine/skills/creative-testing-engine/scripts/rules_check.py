@@ -91,6 +91,18 @@ def check_variant(spec, filled, rules):
         action = sspec.get("action")
         got = filled.get(slot)
 
+        if action == "SET_ASSET":
+            if not sspec.get("value"):
+                v.append({"slot": slot, "code": "asset_not_resolvable",
+                          "detail": "image experiment with no asset from the Admin's "
+                                    "offer_assets map",
+                          "fix": "this experiment should not have been selected"})
+            elif filled.get(slot) and filled.get(slot) != sspec.get("value"):
+                v.append({"slot": slot, "code": "asset_substituted",
+                          "detail": "a different asset was used",
+                          "expected": sspec.get("value"), "got": filled.get(slot)})
+            continue
+
         if action in ("COPY", "INHERIT", "SET"):
             want = sspec.get("value")
             if action == "INHERIT" and slot == "template":
@@ -139,21 +151,23 @@ def check_variant(spec, filled, rules):
                 v.append({"slot": slot, "code": "absolute_claim",
                           "detail": "absolute-certainty claim"})
 
-            for req in sspec.get("must_include", []):
-                if "dollar amount" in req.lower():
-                    if not DOLLAR.search(text):
-                        v.append({"slot": slot, "code": "missing_required_element",
-                                  "detail": "recipe requires an explicit dollar "
-                                            "amount; none present"})
-                    else:
-                        v += _check_amount(slot, text, sspec)
-                if "benefit verb" in req.lower():
-                    verbs = c.get("approved_benefit_verbs", [])
-                    if not any(re.search(r"\b" + re.escape(b) + r"\w*\b", text, re.I)
-                               for b in verbs):
-                        v.append({"slot": slot, "code": "missing_required_element",
-                                  "detail": "no approved benefit verb present",
-                                  "approved": verbs})
+            requires_amount = any("dollar amount" in r.lower()
+                                  for r in sspec.get("must_include", []))
+            if requires_amount and not DOLLAR.search(text):
+                v.append({"slot": slot, "code": "missing_required_element",
+                          "detail": "recipe requires an explicit dollar amount; "
+                                    "none present"})
+            # Check any figure that IS present, required or not.
+            if DOLLAR.search(text):
+                v += _check_amount(slot, text, sspec)
+
+            if any("benefit verb" in r.lower() for r in sspec.get("must_include", [])):
+                verbs = c.get("approved_benefit_verbs", [])
+                if not any(re.search(r"\b" + re.escape(b) + r"\w*\b", text, re.I)
+                           for b in verbs):
+                    v.append({"slot": slot, "code": "missing_required_element",
+                              "detail": "no approved benefit verb present",
+                              "approved": verbs})
 
             if slot == "options":
                 opts = got if isinstance(got, list) else [got]
@@ -175,6 +189,25 @@ def check_variant(spec, filled, rules):
                 if gen:
                     v.append({"slot": slot, "code": "generic_option_text",
                               "detail": f"generic CTA: {gen}"})
+
+    # A recipe that switches template while copying N options can ask for more
+    # options than the target holds. That produces a creative nobody can build,
+    # and the COPY-match check alone will not notice.
+    cap = rules.get("template_capacity") or {}
+    tpl_spec = slots.get("template") or {}
+    eff_tpl = filled.get("template") or tpl_spec.get("value")
+    if eff_tpl and eff_tpl in cap:
+        limit = cap[eff_tpl]
+        n_opts = len([o for o in (filled.get("options") or []) if o])
+        if limit == 0 and n_opts:
+            v.append({"slot": "template", "code": "template_takes_no_options",
+                      "detail": f"{eff_tpl!r} holds no option list, {n_opts} supplied"})
+        elif limit and n_opts > limit:
+            v.append({"slot": "template", "code": "too_many_options_for_template",
+                      "detail": f"{eff_tpl!r} holds at most {limit} option(s), "
+                                f"{n_opts} supplied",
+                      "fix": "reduce the options, or target a template that fits",
+                      "why_it_matters": "this combination cannot be built in Console"})
 
     if hc.get("require_all_macros_mapped"):
         mapped = set((filled.get("macro_mappings") or {}).keys())

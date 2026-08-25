@@ -184,7 +184,21 @@ Write `/tmp/filled.json` as `{"variants":[{"label":"V1","title":…,"subtitle":�
 ```bash
 python3 "$SKILL_DIR/scripts/rules_check.py" --compiled /tmp/compiled.json --filled /tmp/filled.json
 python3 "$SKILL_DIR/scripts/compliance_preflight.py" --input /tmp/variant.json \
-  --rules "$SKILL_DIR/scripts/compliance_rules.json"
+  --rules "$SKILL_DIR/scripts/compliance_rules.json" \
+  --copied-slots "<every slot the compiled spec marked COPY, INHERIT, SET or SET_ASSET>"
+```
+
+`--copied-slots` matters. Slots reproduced verbatim from the live control are
+graded **soft**, not hard: that copy is already serving traffic, so refusing a
+challenger for inheriting it blocks every test without making anything safer.
+The finding is still reported, flagged `inherited_from_control`, so the control's
+own problems stay visible and land on the Admin rather than on you.
+
+Anything the session **wrote** is still graded hard. That is the whole point of
+the distinction — do not pass a REWRITE slot in `--copied-slots` to get a
+violation to go away.
+
+```bash
 ```
 
 Both must pass. On any violation, **rewrite the text and re-run.** Do not edit

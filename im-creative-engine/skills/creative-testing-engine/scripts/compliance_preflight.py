@@ -72,13 +72,14 @@ def _visible_copy(c):
     return " ".join(p for p in parts if p)
 
 
-def check(creative, strict=False, demote=None, ignore=None):
+def check(creative, strict=False, demote=None, ignore=None, copied_slots=None):
     """demote: codes downgraded from hard to soft. ignore: codes dropped.
 
     Both are recorded in the result so a demotion is always visible in the
     audit trail -- a silently relaxed rule is worse than no rule."""
     demote = set(demote or [])
     ignore = set(ignore or [])
+    copied = set(copied_slots or creative.get("copied_slots") or [])
     hard, soft = [], []
     title = creative.get("title") or ""
     subtitle = creative.get("subtitle") or ""
@@ -88,33 +89,41 @@ def check(creative, strict=False, demote=None, ignore=None):
     lowered = visible.lower()
     is_financial = category in FINANCIAL_CATEGORIES
 
-    for pattern in ABSOLUTE_CLAIMS:
-        m = re.search(pattern, lowered, re.I)
-        if m:
-            hard.append({
-                "code": "absolute_claim",
-                "detail": f"absolute-certainty claim {m.group(0)!r}",
-                "fix": "qualify it -- 'see if you qualify', 'check your options'",
-            })
-    for pattern in PROHIBITED:
-        m = re.search(pattern, lowered, re.I)
-        if m:
-            hard.append({
-                "code": "prohibited_phrase",
-                "detail": f"prohibited phrase {m.group(0)!r}",
-                "fix": "remove entirely; there is no compliant phrasing",
-            })
+    # Checked per slot, so a finding carries the slot it came from. That is what
+    # lets copied-from-control copy be treated differently from new copy.
+    per_slot = [("title", title), ("subtitle", subtitle),
+                ("options", " ".join(o for o in (creative.get("options") or []) if o))]
+    for slot_name, slot_text in per_slot:
+        if not slot_text:
+            continue
+        low = slot_text.lower()
+        for pattern in ABSOLUTE_CLAIMS:
+            m = re.search(pattern, low, re.I)
+            if m:
+                hard.append({
+                    "slot": slot_name, "code": "absolute_claim",
+                    "detail": f"absolute-certainty claim {m.group(0)!r} in {slot_name}",
+                    "fix": "qualify it -- 'see if you qualify', 'check your options'",
+                })
+        for pattern in PROHIBITED:
+            m = re.search(pattern, low, re.I)
+            if m:
+                hard.append({
+                    "slot": slot_name, "code": "prohibited_phrase",
+                    "detail": f"prohibited phrase {m.group(0)!r} in {slot_name}",
+                    "fix": "remove entirely; there is no compliant phrasing",
+                })
 
     money = re.search(FINANCIAL_FIGURE, visible, re.I)
     if is_financial and not disclaimer:
         hard.append({
-            "code": "missing_disclaimer_financial",
+            "slot": "disclaimer", "code": "missing_disclaimer_financial",
             "detail": f"category '{category}' with an empty Disclaimer field",
             "fix": "populate Disclaimer before activation",
         })
     elif money and not disclaimer:
         hard.append({
-            "code": "missing_disclaimer_figure",
+            "slot": "disclaimer", "code": "missing_disclaimer_figure",
             "detail": f"states {money.group(0)!r} with no disclaimer",
             "fix": "a stated amount or rate implies terms; add the disclaimer",
         })
@@ -123,7 +132,7 @@ def check(creative, strict=False, demote=None, ignore=None):
         haystack = (disclaimer + " " + lowered).lower()
         if not any(tok in haystack for tok in CONSENT_TOKENS):
             hard.append({
-                "code": "pii_without_consent",
+                "slot": "enable_pii", "code": "pii_without_consent",
                 "detail": "Enable PII Fields is on with no consent language",
                 "fix": "add express consent language, or turn PII fields off",
             })
@@ -197,10 +206,24 @@ def check(creative, strict=False, demote=None, ignore=None):
     for token in re.findall(r"\{\{[^}]+\}\}", visible):
         if token not in (creative.get("macro_mappings") or {}):
             hard.append({
-                "code": "unmapped_macro",
+                "slot": "macro_mappings", "code": "unmapped_macro",
                 "detail": f"{token} has no Macro Mapping",
                 "fix": "map it, or users see the raw token",
             })
+
+    # Slots copied verbatim from the live control are graded soft, not hard.
+    # The control is already serving; refusing a challenger for inheriting copy
+    # that is already in market blocks every test without making anything safer.
+    # The finding is still reported so the control's problems stay visible.
+    if copied:
+        inherited = [f for f in hard if f.get("slot") in copied]
+        if inherited:
+            for f in inherited:
+                f["inherited_from_control"] = True
+                f["note"] = ("copied verbatim from the live control; graded soft. "
+                             "Fix it on the control, not on the challenger.")
+            hard = [f for f in hard if f.get("slot") not in copied]
+            soft = inherited + soft
 
     if ignore:
         hard = [f for f in hard if f["code"] not in ignore]
@@ -224,6 +247,7 @@ def check(creative, strict=False, demote=None, ignore=None):
         "policy_applied": {
             "demoted_to_soft": sorted(demote),
             "ignored": sorted(ignore),
+            "copied_slots_graded_soft": sorted(copied),
             "strict": strict,
         },
         "note": ("Heuristic screen, not legal review. A clean pass is not "
@@ -243,6 +267,9 @@ def main():
     ap.add_argument("--ignore", default="",
                     help="comma-separated codes to drop entirely")
     ap.add_argument("--rules", help="JSON file with demote_to_soft / ignore lists")
+    ap.add_argument("--copied-slots", default="",
+                    help="comma-separated slots copied verbatim from the control; "
+                         "findings on these are graded soft, not hard")
     a = ap.parse_args()
 
     demote = [c for c in a.demote.split(",") if c]
@@ -254,7 +281,8 @@ def main():
         ignore += rules.get("ignore") or []
 
     raw = open(a.input).read() if a.input else sys.stdin.read()
-    res = check(json.loads(raw), a.strict, demote, ignore)
+    copied = [c for c in a.copied_slots.split(",") if c]
+    res = check(json.loads(raw), a.strict, demote, ignore, copied)
     print(json.dumps(res, indent=2))
     sys.exit(0 if res["ok"] else 3)
 

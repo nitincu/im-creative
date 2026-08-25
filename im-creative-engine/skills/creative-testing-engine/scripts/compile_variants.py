@@ -26,6 +26,18 @@ INTENT_PHRASING = re.compile(r"\b(cheapest|lowest|show me|quotes?|coverage|"
                              r"compare|looking for|i want|i need)\b", re.I)
 
 
+def resolve_asset(control, rules=None):
+    """Asset for image-template experiments. Admin map only -- a session inventing
+    an asset is the same failure mode as a session inventing a dollar figure."""
+    assets = ((rules or {}).get("offer_assets") or {}).get("by_offer_name") or {}
+    for key in (control.get("offer_name"), control.get("offer_id")):
+        if key and assets.get(key):
+            return {"asset": assets[key], "source": "admin_offer_assets"}
+    if control.get("image_asset"):
+        return {"asset": control["image_asset"], "source": "control"}
+    return {"asset": None, "source": None}
+
+
 def predicates(control, rules=None):
     title = control.get("title") or ""
     template = control.get("template") or ""
@@ -39,6 +51,8 @@ def predicates(control, rules=None):
         "control_option_count": len(options),
         "control_has_resolvable_amount":
             largest_dollar(control, rules)["amount"] is not None,
+        "control_has_resolvable_asset":
+            resolve_asset(control, rules)["asset"] is not None,
     }
 
 
@@ -83,6 +97,11 @@ def largest_dollar(control, rules=None):
 
 def resolve_slot(slot, spec, control, rules, amount_info):
     action = spec.get("action")
+    if action == "set_from_admin_assets":
+        info = resolve_asset(control, rules)
+        return {"action": "SET_ASSET", "value": info["asset"], "source": info["source"],
+                "instruction": "upload or reference exactly this asset. Do not "
+                               "substitute a different image."}
     if action == "copy_verbatim_from_control":
         return {"action": "COPY", "value": control.get(slot),
                 "instruction": "use exactly this, character for character"}
@@ -110,8 +129,10 @@ def resolve_slot(slot, spec, control, rules, amount_info):
                    "forbid_urgency": hc["forbid_urgency_words"],
                    "forbidden_words": rules["approved_vocabulary"]["forbidden_words"],
                    "approved_benefit_verbs": rules["approved_vocabulary"]["benefit_verbs"]}}
-        if "an explicit dollar amount" in spec.get("must_include", []):
-            out["amount_to_use"] = amount_info
+        # Attached to every REWRITE slot, not just amount experiments. Any figure
+        # the session writes is then checkable, so a fabricated number cannot slip
+        # in through an experiment that merely does not *require* an amount.
+        out["amount_to_use"] = amount_info
         return {k: v for k, v in out.items() if v not in (None, [], {})}
     return {"action": "UNKNOWN:" + str(action)}
 
