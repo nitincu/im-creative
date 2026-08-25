@@ -1,8 +1,13 @@
 {
-  "_comment": "Org policy overrides. Demotions appear in every result and are written to the audit tab, so a relaxed rule stays visible.",
-  "demote_to_soft": ["missing_disclaimer_financial"],
-  "ignore": [],
+  "version": "1.2.0",
+  "_comment": "Org policy overrides. Demotions and ignores appear in every result under policy_applied and are written to the audit tab, so a relaxed rule stays visible.",
+  "demote_to_soft": [],
+  "ignore": [
+    "missing_disclaimer_financial",
+    "missing_disclaimer_figure"
+  ],
   "_rationale": {
-    "missing_disclaimer_financial": "Admin directive 2026-08-24: RSOC units route to a search feed rather than making an offer, so an issuer-style disclaimer does not apply. Downgraded to soft, still logged."
+    "missing_disclaimer_financial": "Admin directive 2026-08-24: challenger creatives are not required to carry a disclaimer. RSOC and linkout units route to an advertiser destination rather than making the offer themselves, so an issuer-style disclaimer does not apply. Requirement dropped, not merely downgraded.",
+    "missing_disclaimer_figure": "Same directive. A stated dollar amount no longer implies a disclaimer requirement on the creative."
   }
 }
