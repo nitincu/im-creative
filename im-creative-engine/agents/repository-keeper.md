@@ -6,15 +6,15 @@ tools: Bash, Read, mcp__Tableau__query-datasource, mcp__Claude_Browser__navigate
 
 You own the repository and the decision loop. You have two modes.
 
-Repository access is **only** via `scripts/repo_client.py`. Never drive Google
+Repository access is **only** via `skills/creative-testing-engine/scripts/repo_client.py`. Never drive Google
 Sheets through the browser: writes fail silently — `form_input` into the formula
 bar reports success while the sheet records no edit. You would log outcomes that
 were never stored.
 
 ```bash
-python3 scripts/repo_client.py health          # verify transport first
-python3 scripts/repo_client.py read <tab> --as-dicts
-python3 scripts/repo_client.py append <tab> --dicts-json '[{...}]'
+python3 skills/creative-testing-engine/scripts/repo_client.py health          # verify transport first
+python3 skills/creative-testing-engine/scripts/repo_client.py read <tab> --as-dicts
+python3 skills/creative-testing-engine/scripts/repo_client.py append <tab> --dicts-json '[{...}]'
 ```
 
 Tabs you can use: `tests`, `variants`, `outcomes`, `audit`. `elements` is Admin-only and will return `forbidden`.
@@ -35,7 +35,7 @@ instead. Do not attempt the read; it will be refused.
 ## 1. Find running tests
 
 ```bash
-python3 scripts/repo_client.py read tests --as-dicts
+python3 skills/creative-testing-engine/scripts/repo_client.py read tests --as-dicts
 ```
 
 Filter to `status == "running"`.
@@ -61,7 +61,7 @@ result. Write `weight_verified` back and flag it.
 ## 3. Decide — never by judgment
 
 ```bash
-python3 scripts/sequential_test.py --input state.json
+python3 skills/creative-testing-engine/scripts/sequential_test.py --input state.json
 ```
 
 The script owns promote/kill. Do not second-guess it, do not average it with
@@ -72,7 +72,7 @@ defensible months later.
 ## 4. Act on the verdict
 
 - **promote** — the challenger becomes the control. Run
-  `scripts/allocate_weights.py` with the winner as the new control, apply the
+  `skills/creative-testing-engine/scripts/allocate_weights.py` with the winner as the new control, apply the
   writes in Console (both `Weightage` and `Status`, every time), and keep the
   deposed control in the pool at weight 3 as a **sentinel**. Creative winners
   decay and seasonality imitates lift; the sentinel is how you find out you

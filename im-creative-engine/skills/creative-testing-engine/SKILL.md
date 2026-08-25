@@ -10,7 +10,7 @@ description: Run the engine's next creative test on an Interest Media Linkout of
 A fixed workflow. Every decision that shapes a creative — which experiment runs,
 which slots change, what the copy may and may not contain, how weights are set,
 when a winner is called — is already made and encoded in
-`rules/creative-rules.json`.
+`"$SKILL_DIR/rules/creative-rules.json"`.
 
 **The thinking is done. This session executes it.**
 
@@ -25,7 +25,7 @@ Do not do any of the following, even if the operator asks:
 - Decide which experiment to run, or run one out of queue order
 - Invent a hypothesis, or reason from first principles about what might work
 - Change slot actions, challenger count, weights, or decision parameters
-- Edit `rules/creative-rules.json`
+- Edit `"$SKILL_DIR/rules/creative-rules.json"`
 - Relax, demote, or work around a `rules_check.py` violation
 - Second-guess `sequential_test.py`
 
@@ -46,10 +46,43 @@ Scope is **Linkout offers only.**
 
 ---
 
+# STEP 0 — Locate this skill's own files
+
+Every gated step below runs a script that ships **inside this skill's directory**.
+The absolute path differs by environment, so resolve it once and reuse it.
+
+When this skill is invoked you are told its base directory. Use that:
+
+```bash
+SKILL_DIR="<the base directory given when this skill was invoked>"
+```
+
+If you don't have it, find it:
+
+```bash
+SKILL_DIR=$(dirname "$(find / -name SKILL.md -path '*creative-testing-engine*' 2>/dev/null | head -1)")
+echo "$SKILL_DIR"
+```
+
+Then confirm the files are actually there before doing anything else:
+
+```bash
+ls "$SKILL_DIR/scripts" "$SKILL_DIR/rules"
+```
+
+You need `repo_client.py`, `sequential_test.py`, `allocate_weights.py`,
+`compile_variants.py`, `rules_check.py`, `compliance_preflight.py`, and
+`"$SKILL_DIR/rules/creative-rules.json"`.
+
+**If those are missing, stop.** The skill is installed without its payload and no
+step below can run. Report that rather than improvising a workaround — the
+deterministic scripts are what make this engine rule-based, and substituting
+your own judgment for them defeats the entire design.
+
 # STEP 1 — Preflight
 
 ```bash
-python3 scripts/repo_client.py health
+python3 "$SKILL_DIR/scripts/repo_client.py" health
 ```
 
 Stop if `ok` is false. Stop and warn the Admin loudly if `secret_enforced` is
@@ -80,7 +113,7 @@ Record for every creative: `Creative ID`, `Template Name`, `Status`,
 # STEP 4 — Identify the control
 
 ```bash
-python3 scripts/allocate_weights.py --input /tmp/creatives.json
+python3 "$SKILL_DIR/scripts/allocate_weights.py" --input /tmp/creatives.json
 ```
 
 The script applies the rule. You do not pick the control.
@@ -116,8 +149,8 @@ control baseline.
 # STEP 7 — Compile the experiment
 
 ```bash
-python3 scripts/compile_variants.py --control /tmp/control.json \
-  --rules rules/creative-rules.json \
+python3 "$SKILL_DIR/scripts/compile_variants.py" --control /tmp/control.json \
+  --rules "$SKILL_DIR/rules/creative-rules.json" \
   --concluded "<comma-separated experiments already concluded on this offer>" \
   > /tmp/compiled.json
 ```
@@ -149,9 +182,9 @@ Write `/tmp/filled.json` as `{"variants":[{"label":"V1","title":…,"subtitle":�
 # STEP 9 — Verify. This gate is not optional
 
 ```bash
-python3 scripts/rules_check.py --compiled /tmp/compiled.json --filled /tmp/filled.json
-python3 scripts/compliance_preflight.py --input /tmp/variant.json \
-  --rules scripts/compliance_rules.json
+python3 "$SKILL_DIR/scripts/rules_check.py" --compiled /tmp/compiled.json --filled /tmp/filled.json
+python3 "$SKILL_DIR/scripts/compliance_preflight.py" --input /tmp/variant.json \
+  --rules "$SKILL_DIR/scripts/compliance_rules.json"
 ```
 
 Both must pass. On any violation, **rewrite the text and re-run.** Do not edit
@@ -204,9 +237,9 @@ served weights match the plan.
 # STEP 12 — Record
 
 ```bash
-python3 scripts/repo_client.py append tests    --dicts-json '[…]'
-python3 scripts/repo_client.py append variants --dicts-json '[…]'
-python3 scripts/repo_client.py append audit    --dicts-json '[…]'
+python3 "$SKILL_DIR/scripts/repo_client.py" append tests    --dicts-json '[…]'
+python3 "$SKILL_DIR/scripts/repo_client.py" append variants --dicts-json '[…]'
+python3 "$SKILL_DIR/scripts/repo_client.py" append audit    --dicts-json '[…]'
 ```
 
 One `tests` row, one `variants` row per creative including the control, one
@@ -216,7 +249,7 @@ One `tests` row, one `variants` row per creative including the control, one
 # STEP 13 — Monitor
 
 ```bash
-python3 scripts/sequential_test.py --input /tmp/state.json \
+python3 "$SKILL_DIR/scripts/sequential_test.py" --input /tmp/state.json \
   --min-impressions 2400 --min-days 7 --max-days 25 --min-lift 0.05
 ```
 

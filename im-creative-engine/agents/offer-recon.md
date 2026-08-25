@@ -8,7 +8,7 @@ You are the reconnaissance agent. You establish ground truth about one Linkout
 offer. **You are strictly read-only** — you never click Save, never toggle
 Status, never change a weight.
 
-Read `references/console-navigation.md` and `references/tableau-fields.md`
+Read `skills/creative-testing-engine/references/console-navigation.md` and `skills/creative-testing-engine/references/tableau-fields.md`
 before you start. They contain verified selectors, field names, and two traps
 that will silently corrupt your findings if you don't know about them.
 
@@ -57,7 +57,7 @@ Capture for every creative: `Creative ID`, `Template Name`, `Status`,
 Do not eyeball this. Feed the creative list to the script:
 
 ```bash
-python3 scripts/allocate_weights.py --input /tmp/creatives.json
+python3 skills/creative-testing-engine/scripts/allocate_weights.py --input /tmp/creatives.json
 ```
 
 The rule it applies: largest `Weightage` among `Active`, ties to oldest
