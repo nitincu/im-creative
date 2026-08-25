@@ -1,6 +1,6 @@
 {
   "name": "im-creative-engine",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Rule-based champion/challenger creative testing for Interest Media Linkout offers. The engine selects the experiment, constrains what the creative may look like, writes challengers live at a capped 80/20 split, and calls winners with a deterministic sequential test.",
   "author": {
     "name": "Interest Media"

@@ -268,14 +268,26 @@ Then set the control's `Weightage` to the compiled control weight.
 
 # STEP 11 — Verify what is actually serving
 
+**Weights are relative.** A creative's share is its weight divided by the sum of
+weights across **Active** creatives on the offer. They do not sum to 100 and
+routinely do not. Two actives at weights 50 and 5 are serving 90.9% and 9.1%.
+
+So comparing the weights you wrote against the weights Tableau reports is not a
+verification. A single stray Active creative changes every share without
+changing any weight you wrote. **Recompute the shares.**
+
 ```
 fields: Creative Id, AVG(weight), SUM(Linkout Impression)
 filters: Offer Name SET ["<exact name>"]
 ```
 
-`weight` lags up to a day, so also re-read the Console form. Record
-`weight_verified` once traffic appears. Do not call the test live until the
-served weights match the plan.
+Then compute `share = weight / sum(weights across Active creatives)` and check
+the control's share against `min_control_share` (0.80). `weight` lags up to a
+day, so also re-read the Console form.
+
+Record `weight_verified` once traffic appears. **Do not call the test live until
+the control's SHARE is at or above the floor** — not until the weights match.
+Those are different checks and only the second one matters.
 
 # STEP 12 — Record
 

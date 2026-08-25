@@ -109,6 +109,28 @@ depend on it.
 `Image/Video + Multiple Options + No Thanks`, `Iframe + No Thanks`,
 `Custom Template`, `Custom Template - AI`.
 
+## Weights are relative, not percentages
+
+A creative's share of traffic is its weight divided by the sum of weights across
+all **Active** creatives on that offer. Weights need not sum to 100.
+
+| Active weights | Actual shares |
+|---|---|
+| `7` alone | 100% — the weight is irrelevant |
+| `50`, `5` | 90.9%, 9.1% |
+| `80`, `10`, `10` | 80%, 10%, 10% |
+| `80`, `10`, `10`, `5` | **76.2%** — the control has breached its floor |
+
+Inactive creatives take no traffic whatever their weight, so a switched-off
+creative sitting at weight 50 does not affect shares at all. That is why raw
+weights in reporting mislead: `ds_rm_linkout_analytics` carries the weight
+regardless of status.
+
+The consequence for the engine: the control's share must never fall below 80%,
+so the non-control weight is a budget derived from that floor, shared by
+challengers and any sentinel. Adding an Active creative outside the plan dilutes
+the control and has to be paid for by rebalancing.
+
 ## THE TRAP: two independent serving gates
 
 `Weightage` and `Status` gate serving **independently**. A challenger given

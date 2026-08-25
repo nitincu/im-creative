@@ -1,5 +1,5 @@
 {
-  "version": "1.4.0",
+  "version": "1.5.0",
   "authored_by": "admin",
   "authored_at": "2026-08-24",
   "_note": "The engine's definition of what a creative may look like. Authored by the Admin. Public sessions consume this file and never author, override, or reason about it. Every generated variant is validated against these rules by rules_check.py before it may be written to Console.",
@@ -265,7 +265,9 @@
     "max_rev_per_conv_drop": 999,
     "control_weight": 80,
     "test_pool": 20,
-    "sentinel_weight": 3
+    "sentinel_weight": 3,
+    "min_control_share": 0.8,
+    "_weights_note": "Weights are RELATIVE. A creative's share is its weight over the sum of weights across ACTIVE creatives on the offer; they need not sum to 100. control_weight and test_pool are starting intents, not percentages. min_control_share is the real constraint and allocate_weights solves for it."
   },
   "image_rules": {
     "_note": "Applies to Image/Video templates. About half of image creatives carry no text title, so the hook lives in the asset. These constraints govern the asset.",
