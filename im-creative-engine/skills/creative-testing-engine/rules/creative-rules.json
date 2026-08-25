@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "authored_by": "admin",
   "authored_at": "2026-08-24",
   "_note": "The engine's definition of what a creative may look like. Authored by the Admin. Public sessions consume this file and never author, override, or reason about it. Every generated variant is validated against these rules by rules_check.py before it may be written to Console.",
@@ -36,7 +36,8 @@
         "experiment": "dollar_amount_in_title",
         "varied_attribute": "has_dollar_amount",
         "applies_when": {
-          "control_title_has_dollar_amount": false
+          "control_title_has_dollar_amount": false,
+          "control_has_resolvable_amount": true
         },
         "recipe": {
           "title": {
@@ -44,7 +45,7 @@
             "must_include": [
               "an explicit dollar amount"
             ],
-            "amount_source": "highest dollar figure present in control options, else control subtitle, else offer payout context",
+            "amount_source": "highest dollar figure in control options, else control subtitle, else control title, else the Admin's offer_amounts map. If none resolves, this experiment does not apply and the queue falls through.",
             "pattern": "<benefit verb> $<amount> on <category noun>",
             "must_avoid": [
               "emoji",
@@ -309,5 +310,9 @@
       ],
       "note": "Paused creatives do not publish retrievable assets; asset review applies to live creatives only."
     }
+  },
+  "offer_amounts": {
+    "_comment": "Admin-maintained. A consumer-facing figure for offers whose control creative does not state one. ONLY the Admin adds entries here. A session may never supply an amount -- that is how fabricated figures reach live traffic. Keys are exact Offer Name strings.",
+    "by_offer_name": {}
   }
 }

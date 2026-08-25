@@ -26,7 +26,7 @@ INTENT_PHRASING = re.compile(r"\b(cheapest|lowest|show me|quotes?|coverage|"
                              r"compare|looking for|i want|i need)\b", re.I)
 
 
-def predicates(control):
+def predicates(control, rules=None):
     title = control.get("title") or ""
     template = control.get("template") or ""
     options = [o for o in (control.get("options") or []) if o]
@@ -37,6 +37,8 @@ def predicates(control):
         "control_template_is_image": "image" in template.lower(),
         "control_options_describe_user_state": intent_like < max(1, len(options) // 2),
         "control_option_count": len(options),
+        "control_has_resolvable_amount":
+            largest_dollar(control, rules)["amount"] is not None,
     }
 
 
@@ -53,8 +55,13 @@ def applies(entry, preds):
     return True, "applies"
 
 
-def largest_dollar(control):
-    """Amount source for the dollar-amount experiment, per the recipe's order."""
+def largest_dollar(control, rules=None):
+    """Resolve the figure the dollar-amount experiment may use.
+
+    Order: control options, subtitle, title, then the Admin's offer_amounts map.
+    Returns amount None when nothing resolves -- which makes the experiment
+    inapplicable rather than licensing an invented number.
+    """
     for field in ("options", "subtitle", "title"):
         vals = control.get(field)
         blob = " ".join(vals) if isinstance(vals, list) else (vals or "")
@@ -62,6 +69,15 @@ def largest_dollar(control):
         if found:
             nums = sorted(int(f.replace(",", "")) for f in found)
             return {"amount": nums[-1], "source": field, "all_found": nums}
+
+    amounts = ((rules or {}).get("offer_amounts") or {}).get("by_offer_name") or {}
+    for key in (control.get("offer_name"), control.get("offer_id")):
+        if key and key in amounts:
+            try:
+                return {"amount": int(amounts[key]), "source": "admin_offer_amounts",
+                        "all_found": [int(amounts[key])]}
+            except (TypeError, ValueError):
+                pass
     return {"amount": None, "source": None, "all_found": []}
 
 
@@ -113,7 +129,7 @@ def main():
     control = json.load(open(a.control))
     rules = json.load(open(a.rules))
     done = {x.strip() for x in a.concluded.split(",") if x.strip()}
-    preds = predicates(control)
+    preds = predicates(control, rules)
 
     evaluated, chosen = [], None
     for entry in sorted(rules["test_queue"]["entries"], key=lambda e: e["priority"]):
@@ -138,11 +154,17 @@ def main():
             "ok": False,
             "error": "no queue entry applies to this control",
             "predicates": preds, "queue_evaluation": evaluated,
-            "action": "report to the Admin. Do not improvise an experiment."
+            "action": "report to the Admin. Do not improvise an experiment.",
+            "likely_cause": (
+                "If dollar_amount_in_title was skipped for a missing amount, the "
+                "control states no figure and this offer has no entry in the "
+                "Admin's offer_amounts map. The Admin either adds one or the queue "
+                "needs an experiment that applies to this offer."
+            )
         }, indent=2))
         sys.exit(2)
 
-    amount_info = largest_dollar(control)
+    amount_info = largest_dollar(control, rules)
     dp = rules["decision_parameters"]
     n = min(chosen.get("n_challengers", 1), rules["hard_constraints"]["max_challengers"])
     pool = dp["test_pool"]

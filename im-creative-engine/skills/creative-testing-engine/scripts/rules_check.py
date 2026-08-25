@@ -28,6 +28,55 @@ DOLLAR = re.compile(r"\$\s?\d")
 MACRO = re.compile(r"\{\{[^}]+\}\}")
 
 
+AMOUNT_RE = re.compile(r"\$\s?([\d,]+(?:\.\d+)?)")
+
+
+def _check_amount(slot, text, sspec):
+    """Every figure in the copy must be the resolved amount or a documented
+    derivation of it.
+
+    Without this, "recipe requires a dollar amount" was satisfied by ANY dollar
+    amount, so a session could invent a figure and the gate would pass it. A
+    fabricated number in a live ad is a truthfulness problem, not a style one.
+
+    Derivations allowed, because the second challenger may reframe the same value:
+      * the amount itself
+      * monthly  = amount / 12   (+/- 1 for rounding)
+      * annual   = amount * 12
+    """
+    info = sspec.get("amount_to_use") or {}
+    allowed_base = info.get("amount")
+    if allowed_base is None:
+        return [{"slot": slot, "code": "amount_not_resolvable",
+                 "detail": "recipe requires a dollar amount but none could be "
+                           "resolved from the control or the Admin's offer_amounts",
+                 "fix": "this experiment should not have been selected; report it"}]
+
+    found = [f.replace(",", "") for f in AMOUNT_RE.findall(text)]
+    monthly = allowed_base / 12.0
+    bad = []
+    for raw in found:
+        try:
+            n = float(raw)
+        except ValueError:
+            continue
+        ok = (abs(n - allowed_base) < 0.01
+              or abs(n - monthly) <= 1.0
+              or abs(n - allowed_base * 12) < 0.01)
+        if not ok:
+            bad.append(raw)
+    if bad:
+        return [{"slot": slot, "code": "fabricated_amount",
+                 "detail": f"figure(s) {bad} do not match the resolved amount "
+                           f"{allowed_base} (source: {info.get('source')})",
+                 "allowed": [allowed_base, round(monthly), allowed_base * 12],
+                 "fix": "use the resolved amount, or its monthly or annual "
+                        "equivalent. Do not introduce a different number.",
+                 "why_it_matters": "an invented figure in live copy is a "
+                                   "truthfulness problem, not a style choice"}]
+    return []
+
+
 def check_variant(spec, filled, rules):
     v = []
     hc = rules["hard_constraints"]
@@ -91,10 +140,13 @@ def check_variant(spec, filled, rules):
                           "detail": "absolute-certainty claim"})
 
             for req in sspec.get("must_include", []):
-                if "dollar amount" in req.lower() and not DOLLAR.search(text):
-                    v.append({"slot": slot, "code": "missing_required_element",
-                              "detail": "recipe requires an explicit dollar "
-                                        "amount; none present"})
+                if "dollar amount" in req.lower():
+                    if not DOLLAR.search(text):
+                        v.append({"slot": slot, "code": "missing_required_element",
+                                  "detail": "recipe requires an explicit dollar "
+                                            "amount; none present"})
+                    else:
+                        v += _check_amount(slot, text, sspec)
                 if "benefit verb" in req.lower():
                     verbs = c.get("approved_benefit_verbs", [])
                     if not any(re.search(r"\b" + re.escape(b) + r"\w*\b", text, re.I)

@@ -1,6 +1,6 @@
 {
   "name": "im-creative-engine",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Champion/challenger creative testing engine for Interest Media Linkout offers. Reads offer and creative state from Console, diagnoses the control, interviews the operator, generates test variants, writes them live at a capped 80/20 weight split, and accumulates every outcome into a shared learning repository.",
   "author": {
     "name": "Interest Media"
