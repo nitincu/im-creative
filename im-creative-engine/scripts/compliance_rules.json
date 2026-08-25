@@ -1,0 +1,8 @@
+{
+  "_comment": "Org policy overrides. Demotions appear in every result and are written to the audit tab, so a relaxed rule stays visible.",
+  "demote_to_soft": ["missing_disclaimer_financial"],
+  "ignore": [],
+  "_rationale": {
+    "missing_disclaimer_financial": "Admin directive 2026-08-24: RSOC units route to a search feed rather than making an offer, so an issuer-style disclaimer does not apply. Downgraded to soft, still logged."
+  }
+}

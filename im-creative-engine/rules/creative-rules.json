@@ -1,0 +1,313 @@
+{
+  "version": "1.1.0",
+  "authored_by": "admin",
+  "authored_at": "2026-08-24",
+  "_note": "The engine's definition of what a creative may look like. Authored by the Admin. Public sessions consume this file and never author, override, or reason about it. Every generated variant is validated against these rules by rules_check.py before it may be written to Console.",
+  "hard_constraints": {
+    "_note": "Violations block the variant. Non-negotiable in any session.",
+    "title_max_words": 11,
+    "title_min_words": 3,
+    "title_forbid_emoji": true,
+    "subtitle_forbid_emoji": false,
+    "forbid_urgency_words": true,
+    "forbid_absolute_claims": true,
+    "require_all_macros_mapped": true,
+    "option_count_min": 1,
+    "option_count_max": 4,
+    "forbid_generic_option_text": [
+      "continue",
+      "next",
+      "click here",
+      "submit",
+      "more",
+      "view details"
+    ],
+    "require_distinct_options": true,
+    "max_challengers": 3,
+    "image_hook_must_state_proposition": true,
+    "image_hook_forbid_conditional_framing": true,
+    "forbid_typos_in_image_hook": true
+  },
+  "test_queue": {
+    "_note": "Priority order. The engine takes the lowest-priority-number entry not yet concluded for the offer's scope. Nothing here is optional or reorderable at the session level.",
+    "entries": [
+      {
+        "priority": 1,
+        "experiment": "dollar_amount_in_title",
+        "varied_attribute": "has_dollar_amount",
+        "applies_when": {
+          "control_title_has_dollar_amount": false
+        },
+        "recipe": {
+          "title": {
+            "action": "rewrite",
+            "must_include": [
+              "an explicit dollar amount"
+            ],
+            "amount_source": "highest dollar figure present in control options, else control subtitle, else offer payout context",
+            "pattern": "<benefit verb> $<amount> on <category noun>",
+            "must_avoid": [
+              "emoji",
+              "urgency words",
+              "absolute claims"
+            ],
+            "max_words": 11
+          },
+          "subtitle": {
+            "action": "copy_verbatim_from_control"
+          },
+          "options": {
+            "action": "copy_verbatim_from_control"
+          },
+          "skip_text": {
+            "action": "copy_verbatim_from_control"
+          },
+          "template": {
+            "action": "inherit_from_control"
+          }
+        },
+        "n_challengers": 2,
+        "second_challenger": "same recipe, different amount framing: monthly figure instead of total",
+        "target_mde": 0.15
+      },
+      {
+        "priority": 2,
+        "experiment": "image_template",
+        "varied_attribute": "template",
+        "applies_when": {
+          "control_template_is_image": false
+        },
+        "recipe": {
+          "title": {
+            "action": "copy_verbatim_from_control"
+          },
+          "subtitle": {
+            "action": "copy_verbatim_from_control"
+          },
+          "options": {
+            "action": "copy_verbatim_from_control"
+          },
+          "template": {
+            "action": "set",
+            "value": "Image/Video + Single Option + No Thanks"
+          }
+        },
+        "n_challengers": 1,
+        "target_mde": 0.15,
+        "note": "Changes exactly one attribute so the result is attributable."
+      },
+      {
+        "priority": 3,
+        "experiment": "benefit_hook",
+        "varied_attribute": "hook_benefit",
+        "applies_when": {
+          "control_title_has_benefit_word": false
+        },
+        "recipe": {
+          "title": {
+            "action": "rewrite",
+            "must_include": [
+              "a benefit verb from the approved list"
+            ],
+            "must_avoid": [
+              "emoji",
+              "urgency words",
+              "social proof phrasing"
+            ],
+            "max_words": 11
+          },
+          "subtitle": {
+            "action": "copy_verbatim_from_control"
+          },
+          "options": {
+            "action": "copy_verbatim_from_control"
+          },
+          "template": {
+            "action": "inherit_from_control"
+          }
+        },
+        "n_challengers": 2,
+        "target_mde": 0.15
+      },
+      {
+        "priority": 4,
+        "experiment": "option_semantics_intent",
+        "varied_attribute": "option_semantics",
+        "applies_when": {
+          "control_options_describe_user_state": true
+        },
+        "recipe": {
+          "title": {
+            "action": "copy_verbatim_from_control"
+          },
+          "subtitle": {
+            "action": "copy_verbatim_from_control"
+          },
+          "options": {
+            "action": "rewrite",
+            "rule": "each option states what the user is SEARCHING FOR, not a fact about them",
+            "count": "match control option count"
+          },
+          "template": {
+            "action": "inherit_from_control"
+          }
+        },
+        "n_challengers": 1,
+        "target_mde": 0.15
+      },
+      {
+        "priority": 5,
+        "experiment": "option_count_reduction",
+        "varied_attribute": "option_count",
+        "applies_when": {
+          "control_option_count_gte": 3
+        },
+        "recipe": {
+          "title": {
+            "action": "copy_verbatim_from_control"
+          },
+          "subtitle": {
+            "action": "copy_verbatim_from_control"
+          },
+          "options": {
+            "action": "reduce_to_single",
+            "rule": "one decisive action naming the benefit"
+          },
+          "template": {
+            "action": "set",
+            "value": "Single Option + No Thanks"
+          }
+        },
+        "n_challengers": 1,
+        "target_mde": 0.15
+      },
+      {
+        "priority": 6,
+        "experiment": "image_hook_unconditional_framing",
+        "varied_attribute": "image_hook_framing",
+        "applies_when": {
+          "control_template_is_image": true
+        },
+        "recipe": {
+          "title": {
+            "action": "copy_verbatim_from_control"
+          },
+          "subtitle": {
+            "action": "copy_verbatim_from_control"
+          },
+          "options": {
+            "action": "copy_verbatim_from_control"
+          },
+          "template": {
+            "action": "inherit_from_control"
+          },
+          "image_hook": {
+            "action": "rewrite",
+            "must_include": [
+              "a specific unconditional proposition stating what the viewer receives"
+            ],
+            "must_avoid": [
+              "conditional framing",
+              "qualification language",
+              "abstract benefit"
+            ],
+            "rule": "restate the offer's value as something already available to the viewer rather than something to qualify for",
+            "max_words": 14
+          }
+        },
+        "n_challengers": 2,
+        "target_mde": 0.15,
+        "note": "Changes exactly one attribute so the result is attributable."
+      }
+    ]
+  },
+  "approved_vocabulary": {
+    "benefit_verbs": [
+      "save",
+      "lower",
+      "compare",
+      "check",
+      "see",
+      "find",
+      "get",
+      "unlock",
+      "qualify for"
+    ],
+    "forbidden_words": [
+      "guaranteed",
+      "pre-approved",
+      "instant approval",
+      "risk-free",
+      "free money",
+      "government grant",
+      "100% approval",
+      "no one is turned down",
+      "everyone qualifies",
+      "hurry",
+      "act now",
+      "limited time",
+      "last chance",
+      "deadline",
+      "expires tonight"
+    ],
+    "_note": "forbidden_words covers both compliance blocks and terms the engine disallows on performance grounds."
+  },
+  "decision_parameters": {
+    "_note": "Applied by sequential_test.py. Not adjustable at session level.",
+    "confidence": 0.95,
+    "bonferroni": true,
+    "min_lift": 0.05,
+    "min_days": 7,
+    "max_days": 25,
+    "min_impressions_per_challenger": 2400,
+    "early_kill_p": 0.05,
+    "early_min_impressions": 500,
+    "max_c2c_drop_pp": 3.0,
+    "max_skip_rise_pp": 5.0,
+    "max_rev_per_conv_drop": 999,
+    "control_weight": 80,
+    "test_pool": 20,
+    "sentinel_weight": 3
+  },
+  "image_rules": {
+    "_note": "Applies to Image/Video templates. About half of image creatives carry no text title, so the hook lives in the asset. These constraints govern the asset.",
+    "hook_must": [
+      "state in words a specific thing the viewer receives or is already entitled to",
+      "be readable at thumbnail size without zooming",
+      "name the value explicitly when the offer's value is a fixed amount"
+    ],
+    "hook_must_not": [
+      "use conditional or effortful framing such as 'see if you qualify', 'test and keep', 'apply to find out'",
+      "rely on an abstract benefit with no concrete offer",
+      "be a stock photograph with only a button and no stated proposition",
+      "contain spelling or grammatical errors"
+    ],
+    "motion": {
+      "allowed": true,
+      "preference": "subtle motion only: a single moving element such as an arrow or gentle reveal",
+      "forbid": [
+        "rapid flashing",
+        "strobe",
+        "full-frame high-contrast animation"
+      ],
+      "rationale_public": "Audience skews senior; motion should direct attention, not compete with the message."
+    },
+    "contrast": {
+      "preference": "moderate. Legibility governs, loudness does not.",
+      "note": "Both restrained and bold treatments are permitted provided the proposition is stated plainly."
+    },
+    "asset_format": {
+      "static": [
+        "png",
+        "jpg",
+        "webp"
+      ],
+      "motion": [
+        "gif",
+        "mp4",
+        "webm"
+      ],
+      "note": "Paused creatives do not publish retrievable assets; asset review applies to live creatives only."
+    }
+  }
+}
