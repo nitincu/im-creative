@@ -11,16 +11,42 @@ Then follow `im-creative-engine/SETUP.md`.
 
 ## For the Admin
 
-Updating rules for the whole org:
+### Every release: bump with the tool, never by hand
 
-1. Edit `im-creative-engine/rules/creative-rules.json`
-2. Bump `version` inside that file **and** `version` in
-   `im-creative-engine/.claude-plugin/plugin.json` — keep them equal
-3. Commit and push
-4. Operators pull the update from `/plugin`
+```bash
+./bump_version.py 1.9.2                  # plugin + marketplace
+./bump_version.py 1.9.2 --rules 1.7.0    # also the rules, when rules changed
+./bump_version.py --check                # verify before committing
+```
+
+Three files carry a version and they must move together:
+
+| File | Carries |
+|---|---|
+| `.claude-plugin/marketplace.json` | marketplace version **and** the plugin entry's version + description |
+| `im-creative-engine/.claude-plugin/plugin.json` | the plugin version |
+| `.../rules/creative-rules.json` | the rules version, only when the rules actually change |
+
+**Why the marketplace version matters.** It originally had none, so the
+marketplace never changed when the plugin did. A client that caches the
+marketplace index saw nothing new and offered no update — which is how an
+install sits on 1.1.0 while the repo is eight releases ahead. Bumping three
+files by hand is how they drift, so the tool does all of them and `--check`
+fails if they disagree.
+
+The marketplace **name** is deliberately never bumped. It is the identifier
+operators added; changing it breaks every existing install.
+
+### Rules changes
+
+1. Edit `im-creative-engine/skills/creative-testing-engine/rules/creative-rules.json`
+2. `./bump_version.py <new> --rules <new-rules>`
+3. `./bump_version.py --check`
+4. Commit and push
+5. Operators update from `/plugin`
 
 Every test records the `rules_version` it ran under, so a result can always be
-traced to the rules that produced it. That only works if the version is bumped.
+traced to the rules that produced it. That only works if the version moves.
 
 ## Never commit
 
